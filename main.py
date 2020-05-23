@@ -16,6 +16,10 @@ BURST_READ = 0xc0
 
 ENDIAN = 'big'
 
+NORMAL = 0
+SYNCH = 1
+RANDOM = 2
+
 FIXED = 0
 VARIABLE = 1
 INFINITE = 2
@@ -50,9 +54,17 @@ class Transceiver(object):
 
     def get_state(self):
         status_byte, state = self.cc1101.status(MARCSTATE)
-        self.status_info(state_byte)
+        # self.status_info(state_byte)
+        print(status_byte, state)
         bits = '{0:08b}'.format(state)
+        print(bits)
         # marc_state = [3:]
+
+    def set_packet_format(self, pkt_format):
+        if pkt_format not in [NORMAL, SYNCH, RANDOM]:
+            raise Exception('')
+        status, val = self.cc1101.read(PKTCTRL0)
+        self.cc1101.write(PKTCTRL0, 0b01100101)
 
     def set_packet_length(self, pkt_len):
         if pkt_len not in [FIXED, VARIABLE, INFINITE]:
@@ -60,39 +72,20 @@ class Transceiver(object):
         status, val = self.cc1101.read(PKTCTRL0)
         print(val | pkt_len)
 
-    def status_info(self, state_byte):
-        bits = '{0:08b}'.format(state_byte)
-        chip_ready = bits[0]
-        main_state = bits[1:4]
-        fifo_bytes = bits[4:]
+    def get_chip_ready(self):
+        state = self.cc1101.strobe(SNOP)
+        state_bits = '{:08b}'.format(state)[0]
+        return int(state_bits, 2)
 
-        print('Status byte ---')
+    def get_state(self):
+        state = self.cc1101.strobe(SNOP)
+        state_bits = '{:08b}'.format(state)[1:4]
+        return int(state_bits, 2)
 
-        # chip ready
-        if chip_ready == '1':
-            print('Chip not ready')
-        else:
-            print('Chip ready')
-
-        # main state
-        if main_state == '000':
-            print('IDLE')
-        elif main_state == '001':
-            print('RX')
-        elif main_state == '010':
-            print('TX')
-        elif main_state == '011':
-            print('FSTXON')
-        elif main_state == '100':
-            print('CALIBRATE')
-        elif main_state == '101':
-            print('SETTLING')
-        elif main_state == '110':
-            print('RXFIFO_OVERFLOW')
-        elif main_state == '111':
-            print('TXFIFO_UNDERFLOW')
-        
-        print('FIFO_BYTES_AVAILABLE {}'.format(fifo_bytes))
+    def get_fifo_bytes(self):
+        state = self.cc1101.strobe(SNOP)
+        state_bits = '{:08b}'.format(state)[4:]
+        return int(state_bits, 2)
 
     def tx_fifo(self, databytes):
         addr = FIFO + 0x40
@@ -110,3 +103,9 @@ gdo0 = Pin(4, Pin.IN)
 gdo2 = Pin(5, Pin.IN)
 
 t = Transceiver(spi, cs, gdo0=gdo0, gdo2=gdo2)
+
+from conf import conf
+
+for k, v in list(conf.items()):
+    addr = locals()[k]
+    t.cc1101.write(addr, v)
