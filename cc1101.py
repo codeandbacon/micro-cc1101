@@ -49,15 +49,19 @@ class CC1101(object):
         self.cs.value(1)
         return read_buf
 
-    def read(self, address):
+    def read(self, address, status_byte=False):
         self.register_addr_space(address)
         res = self._spi_read(address + SINGLE_READ)
-        return res[1], res[0]
+        if status_byte:
+            return res[1], res[0]
+        return res[1]
 
-    def burst_read(self, address, n):
+    def burst_read(self, address, n, status_byte=False):
         self.register_addr_space(address)
         res = self._spi_read(address + BURST_READ, length=n+1)
-        return res[1:], res[0]
+        if status_byte:
+            return res[1:], res[0]
+        return res[1:]
 
     def write(self, address, byte):
         self.register_addr_space(address)
@@ -73,9 +77,9 @@ class CC1101(object):
     def strobe(self, address):
         if address < 0x30 or address > 0x3d:
             raise Exception('not a strobe address')
-        return self._spi_read(address)
+        return self._spi_read(address)[1]
 
     def status(self, address):
         if address < 0xf0 or address > 0xfd:
             raise Exception('not a status register address')
-        return self._spi_read(address)
+        return self._spi_read(address)[1]

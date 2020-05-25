@@ -1,8 +1,8 @@
 PA = 0x50
 conf = {
-    'FREQ2' : 0x21,
-    'FREQ1' : 0x65,
-    'FREQ0' : 0x6A,
+    'FREQ2' : 0x23, # setting frequency to 915Mhz
+    'FREQ1' : 0x31,
+    'FREQ0' : 0x3b,
     'FSCTRL1' : 0x06,
     'FSCTRL0' : 0x00,
     'MDMCFG4' : 0xF5,
@@ -11,7 +11,7 @@ conf = {
     'MDMCFG1' : 0x22,
     'MDMCFG0' : 0xF8,
     'CHANNR' : 0x00,
-    'DEVIATN' : 0x15,
+    'DEVIATN' : 0x47, # more deviation
     'FREND0' : 0x10,
     'FREND1' : 0x56,
     'MCSM0' : 0x18,
