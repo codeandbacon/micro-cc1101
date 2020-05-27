@@ -120,10 +120,11 @@ class Transceiver(object):
         mantissa = int(bits_resp[5:], 2)
         return (self.FREQ_XOSC/2**17)*(8+mantissa)*(2**exp)
 
+    # modulation
     def get_modulation_format(self):
         resp = {
-            1: '2FSK',
-            2: 'GFSK',
+            0: '2FSK',
+            1: 'GFSK',
             3: 'ASK',
             4: '4FSK',
             7: 'MSK'
@@ -131,6 +132,33 @@ class Transceiver(object):
         bits_resp = '{0:08b}'.format(self.cc1101.read(MDMCFG2))
         mod = int(bits_resp[1:4], 2)
         return resp[mod]
+
+    def set_modulation_format(self, modulation):
+        formats = {
+            '2FSK': 0,
+            'GFSK': 1,
+            'ASK': 48, # 2
+            '4FSK': 4,
+            'MSK': 7
+        }
+        mask = int('10001111', 2)
+        current = self.cc1101.read(MDMCFG2)
+        new = current & mask | formats[modulation]
+        self.cc1101.write(MDMCFG2, new)
+
+
+    def get_preamble_bits(self):
+        resp = {
+            0: 2,
+            1: 3,
+            2: 4,
+            3: 6,
+            4: 8,
+            5: 12,
+            6: 16,
+            7: 24
+        }
+        return resp[int(BITS_F.format(self.cc1101.read(MDMCFG1))[1:4], 2)]
 
     def get_chip_ready(self):
         state = self.cc1101.strobe(SNOP)
@@ -182,7 +210,7 @@ if sys.platform == 'esp32':
     # for i in range(200):
     #     pass
 else:
-    for i in range(10):
+    for i in range(1):
         st = t.get_marc_state()
         if st == 'TXFIFO_UNDERFLOW':
             t.cc1101.strobe(SFTX)
@@ -190,3 +218,9 @@ else:
         t.cc1101.strobe(STX)
         sleep(1)
 
+def send():
+    st = t.get_marc_state()
+    if st == 'TXFIFO_UNDERFLOW':
+        t.cc1101.strobe(SFTX)
+    t.tx_fifo(data)
+    t.cc1101.strobe(STX)

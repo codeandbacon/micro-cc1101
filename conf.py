@@ -8,10 +8,10 @@ conf = {
     'MDMCFG4' : 0xF5,
     'MDMCFG3' : 0x83,
     'MDMCFG2' : 0x13,
-    'MDMCFG1' : 0x22,
+    'MDMCFG1' : 0x72, # 24 preamble bits
     'MDMCFG0' : 0xF8,
     'CHANNR' : 0x00,
-    'DEVIATN' : 0x47, # more deviation
+    'DEVIATN' : 0x15, # more deviation
     'FREND0' : 0x10,
     'FREND1' : 0x56,
     'MCSM0' : 0x18,
