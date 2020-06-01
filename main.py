@@ -40,6 +40,21 @@ def init_spi():
 
 # TODO: figuring out the max time between CS LOW and sending the fist packet
 
+def to_bits_string(value):
+    return str.format(BITS_F, value)
+
+def read_bits(value, start=0, length=8):
+    return int(to_bits_string(value)[start:start+length], 2)
+
+def change_bits(byte, change, start=0, length=8):
+    # TODO: find something less convoluted
+    mask = str.format(BITS_F, 255)
+    mask = mask[0:start] + '0'*length + mask[start+length:8]
+    change_mask = str.format(BITS_F, 0)
+    bits_change = str.format(BITS_F, change)[8-length:8]
+    change_mask = change_mask[0:start] + bits_change + change_mask[start+length:8]
+    return byte & int(mask, 2) | int(change_mask, 2)
+
 class Transceiver(object):
 
     FREQ_XOSC = 26000000 # quartz, 26 MHz
@@ -146,7 +161,6 @@ class Transceiver(object):
         new = current & mask | formats[modulation]
         self.cc1101.write(MDMCFG2, new)
 
-
     def get_preamble_bits(self):
         resp = {
             0: 2,
@@ -159,6 +173,33 @@ class Transceiver(object):
             7: 24
         }
         return resp[int(BITS_F.format(self.cc1101.read(MDMCFG1))[1:4], 2)]
+
+    def get_data_rate(self):
+        exp = int(to_bits_string(self.cc1101.read(MDMCFG4))[4:], 2)
+        mantissa = int(to_bits_string(self.cc1101.read(MDMCFG3)), 2)
+        return (((256+mantissa)*(2**exp))/2**28)*self.FREQ_XOSC
+
+    def get_manchester_enc(self):
+        return read_bits(self.cc1101.read(MDMCFG2), 4, 1)
+
+    def set_manchester_enc(self, enable):
+        current = self.cc1101.read(MDMCFG2)
+        change = change_bits(current, enable, 4, 1)
+        self.cc1101.write(MDMCFG2, change)
+
+    def get_qualifier_mode(self):
+        resp = {
+            0: 'NO_PRE_SYNC',
+            1: '15_16_SYNC',
+            2: '16_16_SYNC',
+            3: '30_32_SYNC',
+            4: 'NO_PRE_SYNC_CARRIER',
+            5: '15_16_SYNC_CARRIER',
+            6: '16_16_SYNC_CARRIER',
+            7: '30_32_SYNC_CARRIER',
+        }
+        mode = read_bits(self.cc1101.read(MDMCFG2), 5, 3)
+        return resp[mode]
 
     def get_chip_ready(self):
         state = self.cc1101.strobe(SNOP)
