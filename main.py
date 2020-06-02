@@ -80,6 +80,44 @@ class Transceiver(object):
         freq = int.from_bytes(resp, self.endian)
         return (self.FREQ_XOSC/2**16)*freq
 
+    def get_crc_autoflush(self):
+        return read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
+
+    def set_crc_autoflush(self, autoflush):
+        current = read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
+        change = change_bits(current, autoflush, 4, 1)
+        self.cc1101.write(PKTCTRL1, change)
+
+    def get_append_status(self):
+        return read_bits(self.cc1101.read(PKTCTRL1), 5, 1)
+
+    def set_append_status(self, status):
+        current = read_bits(self.cc1101.read(PKTCTRL1), 5, 1)
+        change = change_bits(current, status, 5, 1)
+        self.cc1101.write(PKTCTRL1, change)
+
+    def get_address_check(self):
+        resp = {
+            0: 'NO_ADDR_CHECK',
+            1: 'ADDR_CHECK_NO_BROADCAST',
+            2: 'ADDR_CHECK_0_BROADCAST',
+            3: 'ADDR_CHECK_0_255_BROADCAST'
+        }
+        res = read_bits(self.cc1101.read(PKTCTRL1), 6, 2)
+        return resp[res]
+
+    def set_address_check(self, check):
+        resp = {
+            0: 'NO_ADDR_CHECK',
+            1: 'ADDR_CHECK_NO_BROADCAST',
+            2: 'ADDR_CHECK_0_BROADCAST',
+            3: 'ADDR_CHECK_0_255_BROADCAST'
+        }
+        codes = dict([(v, k) for k, v in resp.items()])
+        current = read_bits(self.cc1101.read(PKTCTRL1), 6, 2)
+        change = change_bits(current, codes[check], 6, 2)
+        self.cc1101.write(PKTCTRL1, change)
+
     # TODO: merge the get/set into a single method to read and write?
     # packet format
     def set_packet_format(self, pkt_format):
@@ -135,6 +173,14 @@ class Transceiver(object):
         mantissa = int(bits_resp[5:], 2)
         return (self.FREQ_XOSC/2**17)*(8+mantissa)*(2**exp)
 
+    def get_forward_error_correction(self):
+        return read_bits(self.cc1101.read(MDMCFG1), 0, 1)
+
+    def set_forward_error_correction(self, fec):
+        current = read_bits(self.cc1101.read(MDMCFG1), 0, 1)
+        change = change_bits(current, fec, 0, 1)
+        self.cc1101.write(MDMCFG1, change)
+
     # modulation
     def get_modulation_format(self):
         resp = {
@@ -144,22 +190,21 @@ class Transceiver(object):
             4: '4FSK',
             7: 'MSK'
         }
-        bits_resp = '{0:08b}'.format(self.cc1101.read(MDMCFG2))
-        mod = int(bits_resp[1:4], 2)
-        return resp[mod]
+        res = read_bits(self.cc1101.read(MDMCFG2), 1, 3)
+        return resp[res]
 
     def set_modulation_format(self, modulation):
-        formats = {
-            '2FSK': 0,
-            'GFSK': 1,
-            'ASK': 48, # 2
-            '4FSK': 4,
-            'MSK': 7
+        resp = {
+            0: '2FSK',
+            1: 'GFSK',
+            3: 'ASK',
+            4: '4FSK',
+            7: 'MSK'
         }
-        mask = int('10001111', 2)
-        current = self.cc1101.read(MDMCFG2)
-        new = current & mask | formats[modulation]
-        self.cc1101.write(MDMCFG2, new)
+        codes = dict([(v, k) for k, v in resp.items()])
+        current = read_bits(self.cc1101.read(MDMCFG2), 1, 3)
+        change = change_bits(current, codes[modulation], 1, 3)
+        self.cc1101.write(MDMCFG2, change)
 
     def get_preamble_bits(self):
         resp = {
@@ -172,7 +217,24 @@ class Transceiver(object):
             6: 16,
             7: 24
         }
-        return resp[int(BITS_F.format(self.cc1101.read(MDMCFG1))[1:4], 2)]
+        res = read_bits(self.cc1101.read(MDMCFG1), 1, 3)
+        return resp[res]
+
+    def set_preamble_bits(self, num):
+        resp = {
+            0: 2,
+            1: 3,
+            2: 4,
+            3: 6,
+            4: 8,
+            5: 12,
+            6: 16,
+            7: 24
+        }
+        codes = dict([(v, k) for k, v in resp.items()])
+        current = read_bits(self.cc1101.read(MDMCFG1), 1, 3)
+        change = change_bits(current, codes[num], 1, 3)
+        self.cc1101.write(MDMCFG1, change)
 
     def get_data_rate(self):
         exp = int(to_bits_string(self.cc1101.read(MDMCFG4))[4:], 2)
@@ -186,6 +248,17 @@ class Transceiver(object):
         current = self.cc1101.read(MDMCFG2)
         change = change_bits(current, enable, 4, 1)
         self.cc1101.write(MDMCFG2, change)
+
+    def get_sync_word(self):
+        high = self.cc1101.read(SYNC1)
+        low = self.cc1101.read(SYNC0)
+        return to_bits_string(high) + to_bits_string(low)
+
+    def set_sync_word(self, word):
+        high = word[:8]
+        low = word[8:]
+        self.cc1101.write(SYNC1, int(high, 2))
+        self.cc1101.write(SYNC0, int(low, 2))
 
     def get_qualifier_mode(self):
         resp = {
@@ -244,20 +317,26 @@ for k, v in list(conf.items()):
     addr = locals()[k]
     t.cc1101.write(addr, v)
 
-data = bytearray('this is a test, qwerty123456')
+# data = bytearray('this is a test, qwerty123456')
+data = bytearray([1,2,3,4,5,6,7,8,9,10])
 
-if sys.platform == 'esp32':
-    pass
-    # for i in range(200):
-    #     pass
-else:
-    for i in range(1):
-        st = t.get_marc_state()
-        if st == 'TXFIFO_UNDERFLOW':
-            t.cc1101.strobe(SFTX)
-        t.tx_fifo(data)
-        t.cc1101.strobe(STX)
-        sleep(1)
+# if sys.platform == 'esp32':
+#     pass
+#     # for i in range(200):
+#     #     pass
+# else:
+#     for i in range(1):
+#         st = t.get_marc_state()
+#         if st == 'TXFIFO_UNDERFLOW':
+#             t.cc1101.strobe(SFTX)
+#         t.tx_fifo(data)
+#         t.cc1101.strobe(STX)
+#         sleep(1)
+
+t.set_address_check('NO_ADDR_CHECK')
+t.set_modulation_format('2FSK')
+t.set_preamble_bits(8)
+t.set_sync_word('1010101010101010')
 
 def send():
     st = t.get_marc_state()
