@@ -216,18 +216,14 @@ class CC1101(object):
         self.cc1101.write(MDMCFG2, change)
 
     def get_qualifier_mode(self):
-        resp = {
-            0: 'NO_PRE_SYNC',
-            1: '15_16_SYNC',
-            2: '16_16_SYNC',
-            3: '30_32_SYNC',
-            4: 'NO_PRE_SYNC_CARRIER',
-            5: '15_16_SYNC_CARRIER',
-            6: '16_16_SYNC_CARRIER',
-            7: '30_32_SYNC_CARRIER',
-        }
         mode = read_bits(self.cc1101.read(MDMCFG2), 5, 3)
-        return resp[mode]
+        return QUALIFIER_MODE[mode]
+
+    def set_qualifier_mode(self, mode):
+        codes = dict([(v, k) for k, v in QUALIFIER_MODE.items()])
+        current = read_bits(self.cc1101.read(MDMCFG2), 5, 3)
+        change = change_bits(current, codes[mode], 5, 3)
+        self.cc1101.write(MDMCFG2, change)
 
     def get_chip_ready(self):
         state = self.cc1101.strobe(SNOP)

@@ -25,28 +25,11 @@ spi = init_spi()
 
 t = CC1101(spi, cs, gdo0=gdo0, gdo2=gdo2)
 
-# from conf import conf
-
-# t.cc1101.burst_write(0x00, conf)
-
 data = bytearray('this is a test')
-# data = bytearray([1,2,3,4,5,6,7,8,9,10])
-
-# if sys.platform == 'esp32':
-#     pass
-#     # for i in range(200):
-#     #     pass
-# else:
-#     for i in range(1):
-#         st = t.get_marc_state()
-#         if st == 'TXFIFO_UNDERFLOW':
-#             t.cc1101.strobe(SFTX)
-#         t.tx_fifo(data)
-#         t.cc1101.strobe(STX)
-#         sleep(1)
 
 print(t.cc1101.read(0x02))
 
+t.set_freq(915000000)
 t.set_packet_length_conf('INFINITE')
 t.set_address_check('NO_ADDR_CHECK')
 t.set_modulation_format('ASK')
@@ -54,7 +37,7 @@ t.set_data_whitening(0)
 t.set_crc_calc(0)
 t.set_preamble_bits(8)
 t.set_sync_word('1100110011001100')
-
+t.set_qualifier_mode('NO_PRE_SYNC')
 
 # SRES = 0x30
 # SFSTXON = 0x31

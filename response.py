@@ -34,6 +34,17 @@ PACKET_FORMAT = {
     3: 'ASYNC'
 }
 
+QUALIFIER_MODE = {
+    0: 'NO_PRE_SYNC',
+    1: '15_16_SYNC',
+    2: '16_16_SYNC',
+    3: '30_32_SYNC',
+    4: 'NO_PRE_SYNC_CARRIER',
+    5: '15_16_SYNC_CARRIER',
+    6: '16_16_SYNC_CARRIER',
+    7: '30_32_SYNC_CARRIER',
+}
+
 MODULATION_FORMAT = {
     0: '2FSK',
     1: 'GFSK',
