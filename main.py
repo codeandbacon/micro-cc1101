@@ -10,7 +10,7 @@ def init_spi():
     elif chip == 'esp8266':
         return SPI(1, baudrate=5000000, polarity=1, phase=1)
     else:
-        raise Exception('')
+        raise Exception('Cannot detect platform')
 
 if sys.platform == 'esp32':
     cs = Pin(17, Pin.OUT)
@@ -25,14 +25,12 @@ spi = init_spi()
 
 t = CC1101(spi, cs, gdo0=gdo0, gdo2=gdo2)
 
-from conf import conf
+# from conf import conf
 
-for k, v in list(conf.items()):
-    addr = locals()[k]
-    t.cc1101.write(addr, v)
+# t.cc1101.burst_write(0x00, conf)
 
-# data = bytearray('this is a test, qwerty123456')
-data = bytearray([1,2,3,4,5,6,7,8,9,10])
+data = bytearray('this is a test')
+# data = bytearray([1,2,3,4,5,6,7,8,9,10])
 
 # if sys.platform == 'esp32':
 #     pass
@@ -47,20 +45,49 @@ data = bytearray([1,2,3,4,5,6,7,8,9,10])
 #         t.cc1101.strobe(STX)
 #         sleep(1)
 
-t.set_address_check('NO_ADDR_CHECK')
-t.set_modulation_format('2FSK')
-t.set_preamble_bits(8)
-t.set_sync_word('110011001100110')
-t.cc1101.write(IOCFG0, 0x06)
+print(t.cc1101.read(0x02))
 
-# # def cb(pin):
-# #     marc_state = t.get_marc_state()
-# #     print('marc state is {}'.format(marc_state))
+t.set_packet_length_conf('INFINITE')
+t.set_address_check('NO_ADDR_CHECK')
+t.set_modulation_format('ASK')
+t.set_data_whitening(0)
+t.set_crc_calc(0)
+t.set_preamble_bits(8)
+t.set_sync_word('1100110011001100')
+
+
+# SRES = 0x30
+# SFSTXON = 0x31
+# SXOFF = 0x32
+# SCAL = 0x33
+SRX = 0x34
+STX = 0x35
+# SIDLE = 0x36
+# SWOR = 0x38
+# SPWD = 0x39
+SFRX = 0x3a
+SFTX = 0x3b
+# SWORRST = 0x3c
+# SNOP = 0x3d
+
+def cb(pin):
+    print('interrupt value is', gdo0.value())
+    marc_state = t.get_marc_state()
+    print('marc state is {}'.format(marc_state))
+    if marc_state == 'RXFIFO_OVERFLOW':
+        print('resetting')
+        rb = t.rx_bytes()
+        print(rb, ' bytes in the rx queue')
+        b = t.rx_fifo(length=rb)
+        print(b)
+        t.cc1101.strobe(SFRX)
+        t.cc1101.strobe(SRX)
+    print(t.get_marc_state())
 
 def rec():
     t.rx_fifo()
     st = t.get_marc_state()
-    if st == 'RXFIFO_UNDERFLOW':
+    if st == 'RXFIFO_OVERFLOW':
         t.cc1101.strobe(SFRX)
     t.cc1101.strobe(SRX)
 
@@ -71,5 +98,9 @@ def send():
     t.tx_fifo(data)
     t.cc1101.strobe(STX)
 
-# if sys.platform == 'esp32':
-#     gdo0.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=cb)
+if sys.platform == 'esp32':
+    print('interrupt')
+    t.cc1101.write(IOCFG0, 0x04)
+    gdo0.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=cb)
+
+    t.cc1101.strobe(SRX)

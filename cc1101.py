@@ -54,12 +54,58 @@ class CC1101(object):
 
     # 0x04, 0x05, sync word
 
+    def get_sync_word(self):
+        high = self.cc1101.read(SYNC1)
+        low = self.cc1101.read(SYNC0)
+        return to_bits_string(high) + to_bits_string(low)
+
+    def set_sync_word(self, word):
+        high = word[:8]
+        low = word[8:]
+        self.cc1101.write(SYNC1, int(high, 2))
+        self.cc1101.write(SYNC0, int(low, 2))
+
     # 0x06, packet length
 
-    # 0x07, 0x08, packet automation control
+    def get_packet_len(self):
+        return read_bits(self.cc1101.read(PKTLEN))
+
+    # 0x07, packet automation control
+
+    def get_crc_autoflush(self):
+        return read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
+
+    def set_crc_autoflush(self, autoflush):
+        current = read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
+        change = change_bits(current, autoflush, 4, 1)
+        self.cc1101.write(PKTCTRL1, change)
+
+    # 0x08, packet automation control
 
     def get_data_whitening(self):
-        return read_bits(self.cc1101.read(FIFOTHR), 1, 1)
+        return read_bits(self.cc1101.read(PKTCTRL0), 1, 1)
+
+    def set_data_whitening(self, whitening):
+        current = read_bits(self.cc1101.read(PKTCTRL0), 1, 1)
+        change = change_bits(current, whitening, 1, 1)
+        self.cc1101.write(PKTCTRL0, change)
+
+    def get_packet_format(self):
+        return PACKET_FORMAT[read_bits(self.cc1101.read(PKTCTRL0), 2, 2)]
+
+    def set_packet_format(self, pkt_format):
+        codes = dict([(v, k) for k, v in PACKET_FORMAT.items()])
+        current = read_bits(self.cc1101.read(PKTCTRL0), 2, 2)
+        change = change_bits(current, codes[pkt_format], 2, 2)
+        self.cc1101.write(PKTCTRL0, change)    
+
+    def get_crc_calc(self):
+        return read_bits(self.cc1101.read(PKTCTRL0), 5, 1)        
+
+    def set_crc_calc(self, crc):
+        current = read_bits(self.cc1101.read(PKTCTRL0), 5, 1)
+        change = change_bits(current, crc, 5, 1)
+        self.cc1101.write(PKTCTRL0, change)
 
     def reset(self):
         return self.cc1101.strobe(SRES)
@@ -76,14 +122,6 @@ class CC1101(object):
         resp = self.cc1101.burst_read(FREQ2, 3)
         freq = int.from_bytes(resp, self.endian)
         return (self.FREQ_XOSC/2**16)*freq
-
-    def get_crc_autoflush(self):
-        return read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
-
-    def set_crc_autoflush(self, autoflush):
-        current = read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
-        change = change_bits(current, autoflush, 4, 1)
-        self.cc1101.write(PKTCTRL1, change)
 
     def get_append_status(self):
         return read_bits(self.cc1101.read(PKTCTRL1), 5, 1)
@@ -102,18 +140,6 @@ class CC1101(object):
         current = read_bits(self.cc1101.read(PKTCTRL1), 6, 2)
         change = change_bits(current, codes[check], 6, 2)
         self.cc1101.write(PKTCTRL1, change)
-
-    # TODO: merge the get/set into a single method to read and write?
-    # packet format
-    def set_packet_format(self, pkt_format):
-        if pkt_format not in [NORMAL, SYNC, RANDOM, ASYNC]:
-            raise Exception('')
-        status, val = self.cc1101.read(PKTCTRL0)
-        self.cc1101.write(PKTCTRL0, 0b01100101)
-
-    def get_packet_format(self):
-        form = int(BITS_F.format(self.cc1101.read(PKTCTRL0))[2:4], 2)
-        return PACKET_FORMAT[form]
 
     def get_marc_state(self):
         resp = {
@@ -189,17 +215,6 @@ class CC1101(object):
         change = change_bits(current, enable, 4, 1)
         self.cc1101.write(MDMCFG2, change)
 
-    def get_sync_word(self):
-        high = self.cc1101.read(SYNC1)
-        low = self.cc1101.read(SYNC0)
-        return to_bits_string(high) + to_bits_string(low)
-
-    def set_sync_word(self, word):
-        high = word[:8]
-        low = word[8:]
-        self.cc1101.write(SYNC1, int(high, 2))
-        self.cc1101.write(SYNC0, int(low, 2))
-
     def get_qualifier_mode(self):
         resp = {
             0: 'NO_PRE_SYNC',
@@ -234,10 +249,16 @@ class CC1101(object):
         buf = bytearray([addr]) + databytes
         return self.cc1101._spi_write(buf)
 
-    def rx_fifo(self):
-        addr = FIFO + 0x80
-        print(self.cc1101._spi_read(addr)[0])
-        print(self.cc1101._spi_read(addr)[1])
+    def rx_fifo(self, length=1):
+        if length > 1:
+            addr = FIFO + 0xc0
+        else:
+            addr = FIFO + 0x80
+        rx_data = self.cc1101._spi_read(addr, length + 1)
+        return rx_data[1:]
+
+    def rx_bytes(self):
+        return self.cc1101.status(RXBYTES)
 
     def send(self, data):
         # load TX buffer
