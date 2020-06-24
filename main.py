@@ -2,6 +2,8 @@ import sys
 from machine import Pin, SPI
 from cc1101 import CC1101
 from configuration import *
+import utime
+from micropython import const
 
 def init_spi():
     chip = sys.platform
@@ -25,65 +27,121 @@ spi = init_spi()
 
 t = CC1101(spi, cs, gdo0=gdo0, gdo2=gdo2)
 
-data = bytearray('this is a test')
+t.reset()
 
-print(t.cc1101.read(0x02))
+# FIFOTHR
 
-t.set_freq(915000000)
-t.set_packet_length_conf('INFINITE')
+# SYNC1, SYNC0
+t.set_sync_word('1101001110010001')
+
+# # PKTLEN
+t.set_packet_len(61)
+
+# # PKTCTRL1, PKTCTRL0
+# t.set_crc_autoflush(0)
+t.set_append_status(1)
 t.set_address_check('NO_ADDR_CHECK')
-t.set_modulation_format('ASK')
 t.set_data_whitening(0)
+t.set_packet_format('NORMAL')
 t.set_crc_calc(0)
-t.set_preamble_bits(8)
-t.set_sync_word('1100110011001100')
-t.set_qualifier_mode('NO_PRE_SYNC')
+t.set_packet_length_conf('VARIABLE')
 
-# SRES = 0x30
-# SFSTXON = 0x31
-# SXOFF = 0x32
-# SCAL = 0x33
-SRX = 0x34
-STX = 0x35
-# SIDLE = 0x36
-# SWOR = 0x38
-# SPWD = 0x39
-SFRX = 0x3a
-SFTX = 0x3b
-# SWORRST = 0x3c
-# SNOP = 0x3d
+# # ADDR
+
+# # CHANNR
+
+# # FSCTRL1, FSCTRL0
+t.set_intermediate_frequency(203125)
+# t.set_frequency_offset(0)
+
+# # FREQ2, FREQ1, FREQ0
+t.set_freq(915000000)
+
+# # MDMCFG4, MDMCFG3, MDMCFG2, MDMCFG1, MDMCFG0
+t.cc1101.write(MDMCFG4, 0x5B)
+t.cc1101.write(MDMCFG3, 0xF8)
+t.set_qualifier_mode('30_32_SYNC')
+t.set_forward_error_correction(0)
+t.set_preamble_bits(4)
+# t.set_channel_bandwidth(812500)
+# t.set_modulation_format('GFSK')
+# t.set_dc_blocking_filter(0)
+# t.set_manchester_enc(0)
+
+# # DEVIATN
+
+# # MCSM2, MCSM1, MCSM0
+t.set_fs_autocal('FROM_IDLE')
+t.set_po_timeout(64)
+t.set_rxoff_mode('RX')
+
+# # FOCCFG
+t.set_frequency_compensation('4K')
+t.set_foc_limit('BW/8')
+
+# # BSCFG
+t.set_bs_pre_k('K')
+t.set_bs_pre_kp('2K')
+
+# # AGCCTRL2, AGCCTRL1, AGCCTRL0
+t.set_max_dvga_gain('NOT_3_HIGHEST')
+t.set_magn_target(42)
+t.set_agc_lna_priority(0)
+t.set_wait_time(32)
+t.set_filter_length(32)
+
+# # WOREVT1, WOREVT0
+
+# # WORCTRL
+
+# # FREND1, FREND0
+
+# # FSCAL3, FSCAL2, FSCAL1, FSCAL0
+
+t.cc1101.write(IOCFG2, 0x0B)
+t.cc1101.write(IOCFG0, 0x06)
+
+SRX = const(0x34)
+STX = const(0x35)
+
+SFRX = const(0x3a)
+SFTX = const(0x3b)
 
 def cb(pin):
-    print('interrupt value is', gdo0.value())
-    marc_state = t.get_marc_state()
-    print('marc state is {}'.format(marc_state))
-    if marc_state == 'RXFIFO_OVERFLOW':
-        print('resetting')
-        rb = t.rx_bytes()
-        print(rb, ' bytes in the rx queue')
-        b = t.rx_fifo(length=rb)
-        print(b)
-        t.cc1101.strobe(SFRX)
-        t.cc1101.strobe(SRX)
-    print(t.get_marc_state())
+    rxfifo = t.rx_bytes()
+    data = t.rx_fifo(rxfifo)
+    print(data)
 
-def rec():
-    t.rx_fifo()
-    st = t.get_marc_state()
-    if st == 'RXFIFO_OVERFLOW':
-        t.cc1101.strobe(SFRX)
+def set_recv():
     t.cc1101.strobe(SRX)
 
-def send():
-    st = t.get_marc_state()
-    if st == 'TXFIFO_UNDERFLOW':
-        t.cc1101.strobe(SFTX)
-    t.tx_fifo(data)
+def recv(length=None):
+    if length:
+        data_len=length
+    else:
+        data_len = t.rx_fifo()
+        data_len = int.from_bytes(data_len, 'big')
+    print('{} bytes in the rx fifo'.format(data_len))
+    data = t.rx_fifo(length=data_len)
+    t.cc1101.strobe(SFRX)
+    return data
+
+def send(data):
+    data_len = len(data)
+    d = bytearray([data_len]) + bytearray(data)
+    t.tx_fifo(d)
+    print(d)
     t.cc1101.strobe(STX)
+    while(not gdo0.value()):
+        utime.sleep_us(10)    
+    print('GDO0 is HIGH')
+    while(gdo0.value()):
+        utime.sleep_us(10)
+    print('GDO0 is LOW')
+    t.cc1101.strobe(SFTX)
 
 if sys.platform == 'esp32':
-    print('interrupt')
-    t.cc1101.write(IOCFG0, 0x04)
-    gdo0.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=cb)
-
-    t.cc1101.strobe(SRX)
+    gdo0.irq(trigger=Pin.IRQ_FALLING, handler=cb)
+    set_recv()
+else:
+    send('test')

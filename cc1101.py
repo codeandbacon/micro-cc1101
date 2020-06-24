@@ -9,13 +9,7 @@ from response import *
 
 BITS_F = '{0:08b}'
 
-PATABLE = 0x3e
 FIFO = 0x3f
-
-NORMAL = 0
-SYNC = 1
-RANDOM = 2
-ASYNC = 3
 
 def reverse(codes):
     return dict([(v, k) for k, v in codes.items()])
@@ -46,6 +40,35 @@ class CC1101(object):
 
     # 0x00, 0x01, 0x02, output pin configuration
 
+    def set_bits(self, register, change, start=0, length=8):
+        current = read_bits(self.cc1101.read(register))
+        mask = str.format(BITS_F, 255)
+        mask = mask[0:start] + '0'*length + mask[start+length:8]
+        change_mask = str.format(BITS_F, 0)
+        bits_change = str.format(BITS_F, change)[8-length:8]
+        change_mask = change_mask[0:start] + bits_change + change_mask[start+length:8]
+        change = current & int(mask, 2) | int(change_mask, 2)
+        self.cc1101.write(register, change)
+
+    def get_gdo2_inverted_output(self):
+        return read_bits(self.cc1101.read(IOCFG2), 1, 1)
+
+    def get_gdo2_conf(self):
+        res = read_bits(self.cc1101.read(IOCFG2), 2, 6)
+        return GDO_MODE[res]
+
+    def set_gdo2_conf(self, mode):
+        codes = dict([(v, k) for k, v in GDO_MODE.items()])
+        current = read_bits(self.cc1101.read(IOCFG2))
+        change = change_bits(current, codes[mode], 2, 6)
+        self.cc1101.write(IOCFG2, change)
+
+    def set_gdo0_conf(self, mode):
+        codes = dict([(v, k) for k, v in GDO_MODE.items()])
+        current = read_bits(self.cc1101.read(IOCFG0))
+        change = change_bits(current, codes[mode], 2, 6)
+        self.cc1101.write(IOCFG0, change)
+
     # 0x03, RX TX thresholds
 
     def get_fifo_thresholds(self):
@@ -70,64 +93,27 @@ class CC1101(object):
     def get_packet_len(self):
         return read_bits(self.cc1101.read(PKTLEN))
 
-    # 0x07, packet automation control
+    def set_packet_len(self, length):
+        self.cc1101.write(PKTLEN, length)
+
+    # 0x07, 0x08, packet automation control
+
+    def get_pqt(self):
+        pass
 
     def get_crc_autoflush(self):
         return read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
 
     def set_crc_autoflush(self, autoflush):
-        current = read_bits(self.cc1101.read(PKTCTRL1), 4, 1)
+        current = read_bits(self.cc1101.read(PKTCTRL1))
         change = change_bits(current, autoflush, 4, 1)
         self.cc1101.write(PKTCTRL1, change)
-
-    # 0x08, packet automation control
-
-    def get_data_whitening(self):
-        return read_bits(self.cc1101.read(PKTCTRL0), 1, 1)
-
-    def set_data_whitening(self, whitening):
-        current = read_bits(self.cc1101.read(PKTCTRL0), 1, 1)
-        change = change_bits(current, whitening, 1, 1)
-        self.cc1101.write(PKTCTRL0, change)
-
-    def get_packet_format(self):
-        return PACKET_FORMAT[read_bits(self.cc1101.read(PKTCTRL0), 2, 2)]
-
-    def set_packet_format(self, pkt_format):
-        codes = dict([(v, k) for k, v in PACKET_FORMAT.items()])
-        current = read_bits(self.cc1101.read(PKTCTRL0), 2, 2)
-        change = change_bits(current, codes[pkt_format], 2, 2)
-        self.cc1101.write(PKTCTRL0, change)    
-
-    def get_crc_calc(self):
-        return read_bits(self.cc1101.read(PKTCTRL0), 5, 1)        
-
-    def set_crc_calc(self, crc):
-        current = read_bits(self.cc1101.read(PKTCTRL0), 5, 1)
-        change = change_bits(current, crc, 5, 1)
-        self.cc1101.write(PKTCTRL0, change)
-
-    def reset(self):
-        return self.cc1101.strobe(SRES)
-
-    # frequency
-    def set_freq(self, frequency):
-        """
-        Fcarrier = (Fxosc/2**16)*FREQ
-        """
-        f = int((frequency/self.FREQ_XOSC) * 2**16)
-        self.cc1101.burst_write(FREQ2, f.to_bytes(3, self.endian))
-    
-    def get_freq(self):
-        resp = self.cc1101.burst_read(FREQ2, 3)
-        freq = int.from_bytes(resp, self.endian)
-        return (self.FREQ_XOSC/2**16)*freq
 
     def get_append_status(self):
         return read_bits(self.cc1101.read(PKTCTRL1), 5, 1)
 
     def set_append_status(self, status):
-        current = read_bits(self.cc1101.read(PKTCTRL1), 5, 1)
+        current = read_bits(self.cc1101.read(PKTCTRL1))
         change = change_bits(current, status, 5, 1)
         self.cc1101.write(PKTCTRL1, change)
 
@@ -137,22 +123,34 @@ class CC1101(object):
 
     def set_address_check(self, check):
         codes = dict([(v, k) for k, v in ADDRESS_CHECK.items()])
-        current = read_bits(self.cc1101.read(PKTCTRL1), 6, 2)
+        current = read_bits(self.cc1101.read(PKTCTRL1))
         change = change_bits(current, codes[check], 6, 2)
         self.cc1101.write(PKTCTRL1, change)
 
-    def get_marc_state(self):
-        resp = {
-            0: 'SLEEP',
-            1: 'IDLE',
-            2: 'XOFF',
-            13: 'RX',
-            17: 'RXFIFO_OVERFLOW',
-            19: 'TX',
-            22: 'TXFIFO_UNDERFLOW'
-        }
-        state = int(BITS_F.format(self.cc1101.status(MARCSTATE))[3:], 2)
-        return resp[state]
+    def get_data_whitening(self):
+        return read_bits(self.cc1101.read(PKTCTRL0), 1, 1)
+
+    def set_data_whitening(self, whitening):
+        current = read_bits(self.cc1101.read(PKTCTRL0))
+        change = change_bits(current, whitening, 1, 1)
+        self.cc1101.write(PKTCTRL0, change)
+
+    def get_packet_format(self):
+        return PACKET_FORMAT[read_bits(self.cc1101.read(PKTCTRL0), 2, 2)]
+
+    def set_packet_format(self, pkt_format):
+        codes = dict([(v, k) for k, v in PACKET_FORMAT.items()])
+        current = read_bits(self.cc1101.read(PKTCTRL0))
+        change = change_bits(current, codes[pkt_format], 2, 2)
+        self.cc1101.write(PKTCTRL0, change)
+
+    def get_crc_calc(self):
+        return read_bits(self.cc1101.read(PKTCTRL0), 5, 1)        
+
+    def set_crc_calc(self, crc):
+        current = read_bits(self.cc1101.read(PKTCTRL0))
+        change = change_bits(current, crc, 5, 1)
+        self.cc1101.write(PKTCTRL0, change)
 
     def get_packet_length_conf(self):
         res = read_bits(self.cc1101.read(PKTCTRL0), 6, 2)
@@ -160,52 +158,86 @@ class CC1101(object):
 
     def set_packet_length_conf(self, pkt_len):
         codes = dict([(v, k) for k, v in PACKET_LENGTH_CONF.items()])
-        current = read_bits(self.cc1101.read(PKTCTRL0), 6, 2)
+        current = read_bits(self.cc1101.read(PKTCTRL0))
         change = change_bits(current, codes[pkt_len], 6, 2)
         self.cc1101.write(PKTCTRL0, change)
 
-    def get_packet_len(self):
-        return int(BITS_F.format(self.cc1101.read(PKTLEN)), 2)
+    # 0x09, device address
 
-    def get_deviation(self):
-        bits_resp = '{0:08b}'.format(self.cc1101.read(DEVIATN))
-        exp = int(bits_resp[1:4], 2)
-        mantissa = int(bits_resp[5:], 2)
-        return (self.FREQ_XOSC/2**17)*(8+mantissa)*(2**exp)
+    def get_device_address(self):
+        return read_bits(self.cc1101.read(ADDR))
 
-    def get_forward_error_correction(self):
-        return read_bits(self.cc1101.read(MDMCFG1), 0, 1)
+    # 0x0a, channel number
 
-    def set_forward_error_correction(self, fec):
-        current = read_bits(self.cc1101.read(MDMCFG1), 0, 1)
-        change = change_bits(current, fec, 0, 1)
-        self.cc1101.write(MDMCFG1, change)
+    def get_channel_number(self):
+        return read_bits(self.cc1101.read(CHANNR))
 
-    # modulation
+    # 0x0b, 0x0c, frequency synthesizer control
+
+    def get_intermediate_frequency(self):
+        freq_if = read_bits(self.cc1101.read(FSCTRL1), 3, 5)
+        return (self.FREQ_XOSC/1024)*freq_if
+
+    def set_intermediate_frequency(self, freq):
+        freq_if = int((freq/self.FREQ_XOSC)*1024)
+        current = read_bits(self.cc1101.read(FSCTRL1))
+        change = change_bits(current, freq_if, 3, 5)
+        self.cc1101.write(FSCTRL1, change)
+
+    def get_frequency_offset(self):
+        return read_bits(self.cc1101.read(FSCTRL0))
+
+    def set_frequency_offset(self, offset):
+        self.cc1101.write(FSCTRL0, offset)
+
+    # 0x0d, 0x0e, 0x0f, frequency controol word
+
+    def get_freq(self):
+        resp = self.cc1101.burst_read(FREQ2, 3)
+        freq = int.from_bytes(resp, self.endian)
+        return (self.FREQ_XOSC/2**16)*freq
+
+    def set_freq(self, frequency):
+        f = int((frequency/self.FREQ_XOSC) * 2**16)
+        self.cc1101.burst_write(FREQ2, f.to_bytes(3, self.endian))
+    
+    # 0x10, 0x11, 0x12, 0x13, 0x14, modem configuration
+
+    def get_channel_bandwidth(self):
+        current = read_bits(self.cc1101.read(MDMCFG4), 0, 4)
+        return CHANNEL_BANDWIDTH[current]
+        
+    def set_channel_bandwidth(self, width):
+        codes = dict([(v, k) for k, v in CHANNEL_BANDWIDTH.items()])
+        current = read_bits(self.cc1101.read(MDMCFG4))
+        change = change_bits(current, codes[width], 0, 4)
+        self.cc1101.write(MDMCFG4, change)    
+
+    def get_data_rate(self):
+        exp = int(to_bits_string(self.cc1101.read(MDMCFG4))[4:], 2)
+        mantissa = int(to_bits_string(self.cc1101.read(MDMCFG3)), 2)
+        return (((256+mantissa)*(2**exp))/2**28)*self.FREQ_XOSC
+
+    def set_data_rate(self, rate):
+        pass
+
+    def get_dc_blocking_filter(self):
+        return read_bits(self.cc1101.read(MDMCFG2), 0, 1)
+
+    def set_dc_blocking_filter(self, enable):
+        current = self.cc1101.read(MDMCFG2)
+        change = change_bits(current, enable, 0, 1)
+        self.cc1101.write(MDMCFG2, change)
+
     def get_modulation_format(self):
         res = read_bits(self.cc1101.read(MDMCFG2), 1, 3)
         return MODULATION_FORMAT[res]
 
     def set_modulation_format(self, modulation):
         codes = dict([(v, k) for k, v in MODULATION_FORMAT.items()])
-        current = read_bits(self.cc1101.read(MDMCFG2), 1, 3)
+        current = read_bits(self.cc1101.read(MDMCFG2))
         change = change_bits(current, codes[modulation], 1, 3)
         self.cc1101.write(MDMCFG2, change)
-
-    def get_preamble_bits(self):
-        res = read_bits(self.cc1101.read(MDMCFG1), 1, 3)
-        return PREAMBLE_BITS[res]
-
-    def set_preamble_bits(self, num):
-        codes = dict([(v, k) for k, v in PREAMBLE_BITS.items()])
-        current = read_bits(self.cc1101.read(MDMCFG1), 1, 3)
-        change = change_bits(current, codes[num], 1, 3)
-        self.cc1101.write(MDMCFG1, change)
-
-    def get_data_rate(self):
-        exp = int(to_bits_string(self.cc1101.read(MDMCFG4))[4:], 2)
-        mantissa = int(to_bits_string(self.cc1101.read(MDMCFG3)), 2)
-        return (((256+mantissa)*(2**exp))/2**28)*self.FREQ_XOSC
 
     def get_manchester_enc(self):
         return read_bits(self.cc1101.read(MDMCFG2), 4, 1)
@@ -221,9 +253,193 @@ class CC1101(object):
 
     def set_qualifier_mode(self, mode):
         codes = dict([(v, k) for k, v in QUALIFIER_MODE.items()])
-        current = read_bits(self.cc1101.read(MDMCFG2), 5, 3)
+        current = read_bits(self.cc1101.read(MDMCFG2))
         change = change_bits(current, codes[mode], 5, 3)
         self.cc1101.write(MDMCFG2, change)
+
+    def get_preamble_bits(self):
+        res = read_bits(self.cc1101.read(MDMCFG1), 1, 3)
+        return PREAMBLE_BITS[res]
+
+    def set_preamble_bits(self, num):
+        codes = dict([(v, k) for k, v in PREAMBLE_BITS.items()])
+        current = read_bits(self.cc1101.read(MDMCFG1))
+        change = change_bits(current, codes[num], 1, 3)
+        self.cc1101.write(MDMCFG1, change)
+
+    def get_forward_error_correction(self):
+        return read_bits(self.cc1101.read(MDMCFG1), 0, 1)
+
+    def set_forward_error_correction(self, fec):
+        self.set_bits(MDMCFG1, fec, 0, 1)
+
+    def get_channel_spacing(self):
+        exp = read_bits(self.cc1101.read(MDMCFG1), 6, 2)
+        mantissa = read_bits(self.cc1101.read(MDMCFG0))
+        return (self.FREQ_XOSC/2**18)*(256+mantissa)*(2**exp)
+
+    # 0x15, modem deviation setting
+
+    def get_deviation(self):
+        bits_resp = '{0:08b}'.format(self.cc1101.read(DEVIATN))
+        exp = int(bits_resp[1:4], 2)
+        mantissa = int(bits_resp[5:], 2)
+        return (self.FREQ_XOSC/2**17)*(8+mantissa)*(2**exp)
+
+    # 0x16, 0x17, 0x18, main radio control state machine configuration
+
+    def get_rx_rssi(self):
+        return read_bits(self.cc1101.read(MCSM2), 3, 1)
+
+    def get_rx_qual(self):
+        return read_bits(self.cc1101.read(MCSM2), 4, 1)
+
+    def get_rx_time(self):
+        return read_bits(self.cc1101.read(MCSM2), 5, 3)
+
+    def get_cca_mode(self):
+        cca = read_bits(self.cc1101.read(MCSM1), 2, 2)
+        return CCA_MODE[cca]
+
+    def get_rxoff_mode(self):
+        val = read_bits(self.cc1101.read(MCSM1), 4, 2)
+        return OFF_MODE[val]
+
+    def set_rxoff_mode(self, mode):
+        codes = dict([(v, k) for k, v in OFF_MODE.items()])
+        current = read_bits(self.cc1101.read(MCSM1))
+        change = change_bits(current, codes[mode], 4, 2)
+        self.cc1101.write(MCSM1, change)
+
+    def get_txoff_mode(self):
+        val = read_bits(self.cc1101.read(MCSM1), 6, 2)
+        return OFF_MODE[val]
+
+    def get_fs_autocal(self):
+        val = read_bits(self.cc1101.read(MCSM0), 2, 2)
+        return AUTOCAL[val]
+
+    def set_fs_autocal(self, cal):
+        codes = dict([(v, k) for k, v in AUTOCAL.items()])
+        current = read_bits(self.cc1101.read(MCSM0))
+        change = change_bits(current, codes[cal], 2, 2)
+        self.cc1101.write(MCSM0, change)
+
+    def get_po_timeout(self):
+        val = read_bits(self.cc1101.read(MCSM0), 4, 2)
+        return PO_TIMEOUT[val]
+
+    def set_po_timeout(self, timeout):
+        codes = dict([(v, k) for k, v in PO_TIMEOUT.items()])
+        current = read_bits(self.cc1101.read(MCSM0))
+        change = change_bits(current, codes[timeout], 4, 2)
+        self.cc1101.write(MCSM0, change)
+
+    def get_pin_ctrl_en(self):
+        return read_bits(self.cc1101.read(MCSM0), 6, 1)
+
+    def get_xosc_force_on(self):
+        return read_bits(self.cc1101.read(MCSM0), 7, 1)
+
+    # 0x19, frequency offset compensation configuration
+
+    def get_foc_bs_cs_gate(self):
+        return read_bits(self.cc1101.read(FOCCFG), 2, 1)
+
+    def get_frequency_compensation(self):
+        return read_bits(self.cc1101.read(FOCCFG), 3, 2)
+
+    def set_frequency_compensation(self, gain):
+        codes = dict([(v, k) for k, v in LOOP_GAIN.items()])
+        self.set_bits(FOCCFG, codes[gain], 3, 2)
+
+    def get_foc_post_k(self):
+        return read_bits(self.cc1101.read(FOCCFG), 5, 1)
+
+    def get_foc_limit(self):
+        return read_bits(self.cc1101.read(FOCCFG), 6, 2)
+
+    def set_foc_limit(self, saturation):
+        codes = dict([(v, k) for k, v in SATURATION_POINT.items()])
+        self.set_bits(FOCCFG, codes[saturation], 6, 2)
+
+    # 0x1a, bit synchronization configuration
+
+    def set_bs_pre_k(self, gain):
+        codes = dict([(v, k) for k, v in LOOP_GAIN.items()])
+        self.set_bits(BSCFG, codes[gain], 0, 2)
+
+    def set_bs_pre_kp(self, gain):
+        codes = dict([(v, k) for k, v in LOOP_GAIN.items()])
+        self.set_bits(BSCFG, codes[gain], 2, 2)
+
+    # 0x1b, 0x1c, 0x1d, AGC control
+
+    def get_max_dvga_gain(self):
+        return read_bits(self.cc1101.read(AGCCTRL2), 0, 2)
+
+    def set_max_dvga_gain(self, gain):
+        codes = dict([(v, k) for k, v in DVGA_GAIN.items()])
+        self.set_bits(AGCCTRL2, codes[gain], 0, 2)
+
+    def get_max_lna_gain(self):
+        return read_bits(self.cc1101.read(AGCCTRL2), 2, 3)
+
+    def get_magn_target(self):
+        return read_bits(self.cc1101.read(AGCCTRL2), 5, 3)
+
+    def set_magn_target(self, target):
+        codes = dict([(v, k) for k, v in MAGN_TARGET.items()])
+        self.set_bits(AGCCTRL2, codes[target], 5, 3)
+
+    def get_agc_lna_priority(self):
+        return read_bits(self.cc1101.read(AGCCTRL1), 1, 1)
+
+    def set_agc_lna_priority(self, strat):
+        self.set_bits(AGCCTRL1, strat, 1, 1)
+
+    def get_carrier_sense_rel_thr(self):
+        return read_bits(self.cc1101.read(AGCCTRL1), 2, 2)         
+
+    def get_carrier_sense_abs_thr(self):
+        return read_bits(self.cc1101.read(AGCCTRL1), 4, 4)         
+
+    def get_hyst_level(self):
+        return read_bits(self.cc1101.read(AGCCTRL0), 0, 2)         
+
+    def get_wait_time(self):
+        return read_bits(self.cc1101.read(AGCCTRL0), 2, 2)
+
+    def set_wait_time(self, wait):
+        codes = dict([(v, k) for k, v in WAIT_TIME.items()])
+        self.set_bits(AGCCTRL0, codes[wait], 2, 2)
+
+    def get_agc_freeze(self):
+        return read_bits(self.cc1101.read(AGCCTRL0), 4, 2)
+
+    def get_filter_length(self):
+        return read_bits(self.cc1101.read(AGCCTRL0), 6, 2)
+
+    def set_filter_length(self, length):
+        codes = dict([(v, k) for k, v in FILTER_LENGTH.items()])
+        self.set_bits(AGCCTRL0, codes[length], 6, 2)
+
+    # 0x1e, 0x1f, byte event0 timeout
+
+    # 0x20, wake on radio control
+
+    # 0x21, 0x22, front end rx configuration
+
+    # 0x23, 0x24, 0x25, 0x26, frequency synthesizer calibration
+
+    # 0x27, 0x28, rc oscillator configuration
+
+    def reset(self):
+        return self.cc1101.strobe(SRES)
+
+    def get_marc_state(self):
+        state = read_bits(self.cc1101.status(MARCSTATE), 3, 5)
+        return MARC_STATES[state]
 
     def get_chip_ready(self):
         state = self.cc1101.strobe(SNOP)
@@ -256,6 +472,6 @@ class CC1101(object):
     def rx_bytes(self):
         return self.cc1101.status(RXBYTES)
 
-    def send(self, data):
-        # load TX buffer
-        return self.write(FIFO, data)
+    # def send(self, data):
+    #     # load TX buffer
+    #     return self.write(FIFO, data)

@@ -1,9 +1,10 @@
 from machine import Pin, SPI
+from micropython import const
 
-SINGLE_WRITE = 0x00
-BURST_WRITE = 0x40
-SINGLE_READ = 0x80
-BURST_READ = 0xc0
+SINGLE_WRITE = const(0x00)
+BURST_WRITE = const(0x40)
+SINGLE_READ = const(0x80)
+BURST_READ = const(0xc0)
 
 # TODO: figuring out the max time between CS LOW and sending the fist packet
 
