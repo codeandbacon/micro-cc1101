@@ -107,41 +107,31 @@ STX = const(0x35)
 SFRX = const(0x3a)
 SFTX = const(0x3b)
 
-def cb(pin):
+def handler(pin):
     rxfifo = t.rx_bytes()
     data = t.rx_fifo(rxfifo)
     print(data)
 
-def set_recv():
-    t.cc1101.strobe(SRX)
+gdo0.irq(trigger=Pin.IRQ_FALLING, handler=handler)
 
-def recv(length=None):
-    if length:
-        data_len=length
-    else:
-        data_len = t.rx_fifo()
-        data_len = int.from_bytes(data_len, 'big')
-    print('{} bytes in the rx fifo'.format(data_len))
-    data = t.rx_fifo(length=data_len)
-    t.cc1101.strobe(SFRX)
-    return data
+t.cc1101.strobe(SRX)
 
 def send(data):
+    if t.get_marc_state() == 'RXFIFO_OVERFLOW':
+        t.cc1101.strobe(SFRX)
+        while t.get_marc_state() != 'IDLE':
+            utime.sleep_us(1000)
     data_len = len(data)
     d = bytearray([data_len]) + bytearray(data)
     t.tx_fifo(d)
-    print(d)
     t.cc1101.strobe(STX)
     while(not gdo0.value()):
         utime.sleep_us(10)    
-    print('GDO0 is HIGH')
+    # print('GDO0 is HIGH')
     while(gdo0.value()):
         utime.sleep_us(10)
-    print('GDO0 is LOW')
+    # print('GDO0 is LOW')
     t.cc1101.strobe(SFTX)
-
-if sys.platform == 'esp32':
-    gdo0.irq(trigger=Pin.IRQ_FALLING, handler=cb)
-    set_recv()
-else:
-    send('test')
+    while t.get_marc_state() != 'IDLE':
+        utime.sleep_us(1000)
+    t.cc1101.strobe(SRX)

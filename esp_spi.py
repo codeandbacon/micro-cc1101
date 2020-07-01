@@ -5,8 +5,8 @@ SINGLE_WRITE = const(0x00)
 BURST_WRITE = const(0x40)
 SINGLE_READ = const(0x80)
 BURST_READ = const(0xc0)
-
-# TODO: figuring out the max time between CS LOW and sending the fist packet
+LOW = const(0x00)
+HIGH = const(0x01)
 
 # TODO: find a better name for this class
 class EspSPI(object):
@@ -21,16 +21,16 @@ class EspSPI(object):
             raise Exception('address is above configuration registers')
 
     def _spi_read(self, address, length=2):
-        self.cs.value(0)
+        self.cs.value(LOW)
         res = self.spi.read(length, address)
-        self.cs.value(1)
+        self.cs.value(HIGH)
         return res
 
     def _spi_write(self, write_buf):
         read_buf = bytearray(len(write_buf))
-        self.cs.value(0)
+        self.cs.value(LOW)
         self.spi.write_readinto(write_buf, read_buf)
-        self.cs.value(1)
+        self.cs.value(HIGH)
         return read_buf
 
     def read(self, address, status_byte=False):
