@@ -12,7 +12,7 @@ BITS_F = '{0:08b}'
 FIFO = 0x3f
 
 def reverse(codes):
-    return dict([(v, k) for k, v in codes.items()])
+    return reverse(codes)
 
 def to_bits_string(value):
     return str.format(BITS_F, value)
@@ -58,13 +58,13 @@ class CC1101(object):
         return GDO_MODE[res]
 
     def set_gdo2_conf(self, mode):
-        codes = dict([(v, k) for k, v in GDO_MODE.items()])
+        codes = reverse(GDO_MODE)
         current = read_bits(self.cc1101.read(IOCFG2))
         change = change_bits(current, codes[mode], 2, 6)
         self.cc1101.write(IOCFG2, change)
 
     def set_gdo0_conf(self, mode):
-        codes = dict([(v, k) for k, v in GDO_MODE.items()])
+        codes = reverse(GDO_MODE)
         current = read_bits(self.cc1101.read(IOCFG0))
         change = change_bits(current, codes[mode], 2, 6)
         self.cc1101.write(IOCFG0, change)
@@ -122,7 +122,7 @@ class CC1101(object):
         return ADDRESS_CHECK[res]
 
     def set_address_check(self, check):
-        codes = dict([(v, k) for k, v in ADDRESS_CHECK.items()])
+        codes = reverse(ADDRESS_CHECK)
         current = read_bits(self.cc1101.read(PKTCTRL1))
         change = change_bits(current, codes[check], 6, 2)
         self.cc1101.write(PKTCTRL1, change)
@@ -139,7 +139,7 @@ class CC1101(object):
         return PACKET_FORMAT[read_bits(self.cc1101.read(PKTCTRL0), 2, 2)]
 
     def set_packet_format(self, pkt_format):
-        codes = dict([(v, k) for k, v in PACKET_FORMAT.items()])
+        codes = reverse(PACKET_FORMAT)
         current = read_bits(self.cc1101.read(PKTCTRL0))
         change = change_bits(current, codes[pkt_format], 2, 2)
         self.cc1101.write(PKTCTRL0, change)
@@ -157,7 +157,7 @@ class CC1101(object):
         return PACKET_LENGTH_CONF[res]
 
     def set_packet_length_conf(self, pkt_len):
-        codes = dict([(v, k) for k, v in PACKET_LENGTH_CONF.items()])
+        codes = reverse(PACKET_LENGTH_CONF)
         current = read_bits(self.cc1101.read(PKTCTRL0))
         change = change_bits(current, codes[pkt_len], 6, 2)
         self.cc1101.write(PKTCTRL0, change)
@@ -208,7 +208,7 @@ class CC1101(object):
         return CHANNEL_BANDWIDTH[current]
         
     def set_channel_bandwidth(self, width):
-        codes = dict([(v, k) for k, v in CHANNEL_BANDWIDTH.items()])
+        codes = reverse(CHANNEL_BANDWIDTH)
         current = read_bits(self.cc1101.read(MDMCFG4))
         change = change_bits(current, codes[width], 0, 4)
         self.cc1101.write(MDMCFG4, change)    
@@ -234,7 +234,8 @@ class CC1101(object):
         return MODULATION_FORMAT[res]
 
     def set_modulation_format(self, modulation):
-        codes = dict([(v, k) for k, v in MODULATION_FORMAT.items()])
+
+        codes = reverse(MODULATION_FORMAT)
         current = read_bits(self.cc1101.read(MDMCFG2))
         change = change_bits(current, codes[modulation], 1, 3)
         self.cc1101.write(MDMCFG2, change)
@@ -252,7 +253,7 @@ class CC1101(object):
         return QUALIFIER_MODE[mode]
 
     def set_qualifier_mode(self, mode):
-        codes = dict([(v, k) for k, v in QUALIFIER_MODE.items()])
+        codes = reverse(QUALIFIER_MODE)
         current = read_bits(self.cc1101.read(MDMCFG2))
         change = change_bits(current, codes[mode], 5, 3)
         self.cc1101.write(MDMCFG2, change)
@@ -262,7 +263,7 @@ class CC1101(object):
         return PREAMBLE_BITS[res]
 
     def set_preamble_bits(self, num):
-        codes = dict([(v, k) for k, v in PREAMBLE_BITS.items()])
+        codes = reverse(PREAMBLE_BITS)
         current = read_bits(self.cc1101.read(MDMCFG1))
         change = change_bits(current, codes[num], 1, 3)
         self.cc1101.write(MDMCFG1, change)
@@ -306,7 +307,7 @@ class CC1101(object):
         return OFF_MODE[val]
 
     def set_rxoff_mode(self, mode):
-        codes = dict([(v, k) for k, v in OFF_MODE.items()])
+        codes = reverse(OFF_MODE)
         current = read_bits(self.cc1101.read(MCSM1))
         change = change_bits(current, codes[mode], 4, 2)
         self.cc1101.write(MCSM1, change)
@@ -320,7 +321,7 @@ class CC1101(object):
         return AUTOCAL[val]
 
     def set_fs_autocal(self, cal):
-        codes = dict([(v, k) for k, v in AUTOCAL.items()])
+        codes = reverse(AUTOCAL)
         current = read_bits(self.cc1101.read(MCSM0))
         change = change_bits(current, codes[cal], 2, 2)
         self.cc1101.write(MCSM0, change)
@@ -330,7 +331,7 @@ class CC1101(object):
         return PO_TIMEOUT[val]
 
     def set_po_timeout(self, timeout):
-        codes = dict([(v, k) for k, v in PO_TIMEOUT.items()])
+        codes = reverse(PO_TIMEOUT)
         current = read_bits(self.cc1101.read(MCSM0))
         change = change_bits(current, codes[timeout], 4, 2)
         self.cc1101.write(MCSM0, change)
@@ -350,7 +351,7 @@ class CC1101(object):
         return read_bits(self.cc1101.read(FOCCFG), 3, 2)
 
     def set_frequency_compensation(self, gain):
-        codes = dict([(v, k) for k, v in LOOP_GAIN.items()])
+        codes = reverse(LOOP_GAIN)
         self.set_bits(FOCCFG, codes[gain], 3, 2)
 
     def get_foc_post_k(self):
@@ -360,17 +361,17 @@ class CC1101(object):
         return read_bits(self.cc1101.read(FOCCFG), 6, 2)
 
     def set_foc_limit(self, saturation):
-        codes = dict([(v, k) for k, v in SATURATION_POINT.items()])
+        codes = reverse(SATURATION_POINT)
         self.set_bits(FOCCFG, codes[saturation], 6, 2)
 
     # 0x1a, bit synchronization configuration
 
     def set_bs_pre_k(self, gain):
-        codes = dict([(v, k) for k, v in LOOP_GAIN.items()])
+        codes = reverse(LOOP_GAIN)
         self.set_bits(BSCFG, codes[gain], 0, 2)
 
     def set_bs_pre_kp(self, gain):
-        codes = dict([(v, k) for k, v in LOOP_GAIN.items()])
+        codes = reverse(LOOP_GAIN)
         self.set_bits(BSCFG, codes[gain], 2, 2)
 
     # 0x1b, 0x1c, 0x1d, AGC control
@@ -379,7 +380,7 @@ class CC1101(object):
         return read_bits(self.cc1101.read(AGCCTRL2), 0, 2)
 
     def set_max_dvga_gain(self, gain):
-        codes = dict([(v, k) for k, v in DVGA_GAIN.items()])
+        codes = reverse(DVGA_GAIN)
         self.set_bits(AGCCTRL2, codes[gain], 0, 2)
 
     def get_max_lna_gain(self):
@@ -389,7 +390,7 @@ class CC1101(object):
         return read_bits(self.cc1101.read(AGCCTRL2), 5, 3)
 
     def set_magn_target(self, target):
-        codes = dict([(v, k) for k, v in MAGN_TARGET.items()])
+        codes = reverse(MAGN_TARGET)
         self.set_bits(AGCCTRL2, codes[target], 5, 3)
 
     def get_agc_lna_priority(self):
@@ -411,7 +412,7 @@ class CC1101(object):
         return read_bits(self.cc1101.read(AGCCTRL0), 2, 2)
 
     def set_wait_time(self, wait):
-        codes = dict([(v, k) for k, v in WAIT_TIME.items()])
+        codes = reverse(WAIT_TIME)
         self.set_bits(AGCCTRL0, codes[wait], 2, 2)
 
     def get_agc_freeze(self):
@@ -421,7 +422,7 @@ class CC1101(object):
         return read_bits(self.cc1101.read(AGCCTRL0), 6, 2)
 
     def set_filter_length(self, length):
-        codes = dict([(v, k) for k, v in FILTER_LENGTH.items()])
+        codes = reverse(FILTER_LENGTH)
         self.set_bits(AGCCTRL0, codes[length], 6, 2)
 
     # 0x1e, 0x1f, byte event0 timeout

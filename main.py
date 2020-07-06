@@ -4,6 +4,7 @@ from cc1101 import CC1101
 from configuration import *
 import utime
 from micropython import const
+from strobes import *
 
 def init_spi():
     chip = sys.platform
@@ -100,12 +101,6 @@ t.set_filter_length(32)
 
 t.cc1101.write(IOCFG2, 0x0B)
 t.cc1101.write(IOCFG0, 0x06)
-
-SRX = const(0x34)
-STX = const(0x35)
-
-SFRX = const(0x3a)
-SFTX = const(0x3b)
 
 def handler(pin):
     rxfifo = t.rx_bytes()
