@@ -15,3 +15,8 @@ SFRX = const(0x3a)
 SFTX = const(0x3b)
 SWORRST = const(0x3c)
 SNOP = const(0x3d)
+
+# PA table and FIFO
+
+PATABLE = const(0x3e)
+FIFO = const(0x3f)

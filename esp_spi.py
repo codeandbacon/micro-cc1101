@@ -1,4 +1,3 @@
-from machine import Pin, SPI
 from micropython import const
 
 SINGLE_WRITE = const(0x00)
