@@ -30,6 +30,10 @@ t = CC1101(spi, cs, gdo0=gdo0, gdo2=gdo2)
 
 t.reset()
 
+# IOCFG2, IOCFG1, IOCFG0
+t.set_gdo2_conf('SERIAL_CLOCK')
+t.set_gdo0_conf('SYNC_WORD')
+
 # FIFOTHR
 
 # SYNC1, SYNC0
@@ -40,7 +44,7 @@ t.set_packet_len(61)
 
 # # PKTCTRL1, PKTCTRL0
 # t.set_crc_autoflush(0)
-t.set_append_status(1)
+t.set_append_status(0)
 t.set_address_check('NO_ADDR_CHECK')
 t.set_data_whitening(0)
 t.set_packet_format('NORMAL')
@@ -59,15 +63,14 @@ t.set_intermediate_frequency(203125)
 t.set_freq(915000000)
 
 # # MDMCFG4, MDMCFG3, MDMCFG2, MDMCFG1, MDMCFG0
-t.cc1101.write(MDMCFG4, 0x5B)
-t.cc1101.write(MDMCFG3, 0xF8)
+t.set_data_rate(115051)
 t.set_qualifier_mode('30_32_SYNC')
 t.set_forward_error_correction(0)
 t.set_preamble_bits(4)
-# t.set_channel_bandwidth(812500)
+t.set_channel_bandwidth(325000)
 # t.set_modulation_format('GFSK')
 # t.set_dc_blocking_filter(0)
-# t.set_manchester_enc(0)
+t.set_manchester_enc(0)
 
 # # DEVIATN
 
@@ -99,8 +102,7 @@ t.set_filter_length(32)
 
 # # FSCAL3, FSCAL2, FSCAL1, FSCAL0
 
-t.cc1101.write(IOCFG2, 0x0B)
-t.cc1101.write(IOCFG0, 0x06)
+
 
 def handler(pin):
     rxfifo = t.rx_bytes()

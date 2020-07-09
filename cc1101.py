@@ -1,4 +1,5 @@
 import sys
+import math
 from machine import Pin, SPI
 from status import *
 from configuration import *
@@ -50,6 +51,10 @@ class CC1101(object):
         codes = reverse(GDO_MODE)
         self.set_bits(IOCFG2, codes[mode], 0x02, 0x06)
 
+    def get_gdo0_conf(self):
+        res = read_bits(self.cc1101.read(IOCFG0), 0x02, 0x06)
+        return GDO_MODE[res]
+
     def set_gdo0_conf(self, mode):
         codes = reverse(GDO_MODE)
         self.set_bits(IOCFG0, codes[mode], 0x02, 0x06)
@@ -84,7 +89,10 @@ class CC1101(object):
     # 0x07, 0x08, packet automation control
 
     def get_pqt(self):
-        pass
+        return read_bits(self.cc1101.read(PKTCTRL1), 0x00, 0x02)        
+
+    def set_pqt(self, pqt):
+        self.set_bits(PKTCTRL1, pqt, 0x00, 0x02)        
 
     def get_crc_autoflush(self):
         return read_bits(self.cc1101.read(PKTCTRL1), 0x04, 0x01)
@@ -186,7 +194,15 @@ class CC1101(object):
         return (((256+mantissa)*(2**exp))/2**28)*self.FREQ_XOSC
 
     def set_data_rate(self, rate):
-        pass
+        drate_e = round(math.log(((rate*(2**20))/self.FREQ_XOSC), 2))
+        drate_m = round(((rate*(2**28))/(self.FREQ_XOSC*(2**drate_e))) - 256)
+        if drate_m < 0:
+            drate_m = 0
+        if drate_m > 255:
+            drate_m = 0
+            drate_e += 1
+        self.set_bits(MDMCFG4, drate_e, 0x04, 0x04)
+        self.set_bits(MDMCFG3, drate_m)
 
     def get_dc_blocking_filter(self):
         return read_bits(self.cc1101.read(MDMCFG2), 0x00, 0x01)
