@@ -146,10 +146,16 @@ class CC1101(object):
     def get_device_address(self):
         return read_bits(self.cc1101.read(ADDR))
 
+    def set_device_address(self, address):
+        self.set_bits(ADDR, address)
+
     # 0x0a, channel number
 
-    def get_channel_number(self):
+    def get_chan(self):
         return read_bits(self.cc1101.read(CHANNR))
+
+    def set_chan(self, channel):
+        self.set_bits(CHANNR, channel)
 
     # 0x0b, 0x0c, frequency synthesizer control
 
@@ -258,6 +264,9 @@ class CC1101(object):
         exp = int(bits_resp[1:4], 2)
         mantissa = int(bits_resp[5:], 2)
         return (self.FREQ_XOSC/2**17)*(8+mantissa)*(2**exp)
+
+    def set_deviation(self, deviation):
+        pass
 
     # 0x16, 0x17, 0x18, main radio control state machine configuration
 
