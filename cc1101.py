@@ -266,7 +266,9 @@ class CC1101(object):
         return (self.FREQ_XOSC/2**17)*(8+mantissa)*(2**exp)
 
     def set_deviation(self, deviation):
-        pass
+        e = math.floor(math.log(deviation/1586, 2))
+        m = (deviation/((self.FREQ_XOSC/2**17)*(2**e)))-8
+        self.set_bits(DEVIATN, int((e*16)+m))
 
     # 0x16, 0x17, 0x18, main radio control state machine configuration
 
