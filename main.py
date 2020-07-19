@@ -107,7 +107,8 @@ t.set_filter_length(32)
 def handler(pin):
     rxfifo = t.rx_bytes()
     data = t.rx_fifo(rxfifo)
-    print(data)
+    if len(data):
+        print((b'RCV' + data).decode('utf8'))
 
 gdo0.irq(trigger=Pin.IRQ_FALLING, handler=handler)
 
@@ -124,10 +125,8 @@ def send(data):
     t.cc1101.strobe(STX)
     while(not gdo0.value()):
         utime.sleep_us(10)    
-    # print('GDO0 is HIGH')
     while(gdo0.value()):
         utime.sleep_us(10)
-    # print('GDO0 is LOW')
     t.cc1101.strobe(SFTX)
     while t.get_marc_state() != 'IDLE':
         utime.sleep_us(1000)

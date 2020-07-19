@@ -17,8 +17,9 @@ esp8266, esp32, more to be added in the future
 |cc1101    |Y  |Y  |Y   |Y    |Y   |Y  |    |   |    |reference chip|
 |RFM69W    |   |   |Y   |Y    |    |Y  |Y   |   |    |    |
 |SX1276    |   |Y  |Y   |Y    |    |Y  |Y   |   |Y   |    |
-|SPIRIT1   |Y  |Y  |Y   |Y    |    |   |    |   |    |find dev board|
+|SPIRIT1   |Y  |Y  |Y   |Y    |    |Y  |Y   |   |    |find dev board|
 |nRF905    |   |   |    |Y    |    |   |    |   |    |    |
+|Si4432    |   |Y  |Y   |Y    |    |   |    |   |    |find dev board|
 |ATA8510   |Y  |   |Y   |     |    |   |    |   |    |find dev board|
 |generic   |Y? |Y  |    |     |    |   |    |   |    |actually possible?*|
 
