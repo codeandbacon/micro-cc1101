@@ -2,7 +2,13 @@
 learning how the CC1101 works using micropython
 
 ## current hardware
-esp8266, esp32, more to be added in the future
+|hardware   |   status  |
+|:-         |:-:        |
+|esp8266    |working*   |
+|esp32      |working    |
+|SAMD51     |WIP        |
+|STM32      |need hw    |
+\* memory issues, need to move to frozen module
 
 #### notes
 
@@ -14,8 +20,8 @@ esp8266, esp32, more to be added in the future
 
 |chip      |ask|ook|2fsk|2gfsk|4fsk|msk|gmsk|psk|lora|note|
 |:--       |:-:|:-:|:-: |:-:  |:-: |:-:|:-: |:-:|:-: |:-  |
-|cc1101    |Y  |Y  |Y   |Y    |Y   |Y  |    |   |    |reference chip|
-|RFM69W    |   |   |Y   |Y    |    |Y  |Y   |   |    |    |
+|cc1101    |Y  |Y  |Y   |Y    |Y   |Y  |    |   |    |WIP |
+|RFM69W    |   |Y  |Y   |Y    |    |Y  |Y   |   |    |WIP |
 |SX1276    |   |Y  |Y   |Y    |    |Y  |Y   |   |Y   |    |
 |SPIRIT1   |Y  |Y  |Y   |Y    |    |Y  |Y   |   |    |find dev board|
 |nRF905    |   |   |    |Y    |    |   |    |   |    |    |

@@ -131,3 +131,16 @@ def send(data):
     while t.get_marc_state() != 'IDLE':
         utime.sleep_us(1000)
     t.cc1101.strobe(SRX)
+
+import uos
+from machine import UART
+uos.dupterm(None, 1)
+
+uart = UART(0, 115200)
+uart.init(115200, bits=8, parity=None, stop=1)
+
+# while True:
+for i in range(5000):
+    utime.sleep_us(1000)
+    uart.write('hello')
+    # uart.read(5) # read up to 5 bytes
