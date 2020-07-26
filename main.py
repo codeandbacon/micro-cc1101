@@ -3,13 +3,12 @@ from machine import Pin, SPI, UART
 from cc1101 import CC1101
 from configuration import *
 import utime
-from micropython import const
 from strobes import *
 import uos
 import uasyncio
 
-red_led = machine.Pin(16, machine.Pin.OUT)
-blue_led = machine.Pin(2, machine.Pin.OUT)
+red_led = machine.Pin(16, machine.Pin.OUT) # extra
+blue_led = machine.Pin(2, machine.Pin.OUT) # built-in
 
 def blink(led, n=1):
     for i in range(n):
@@ -115,16 +114,23 @@ t.set_filter_length(32)
 
 # # FSCAL3, FSCAL2, FSCAL1, FSCAL0
 
+# detach REPL from UART, move to boot.py at some point
+uos.dupterm(None, 1)
 
+uart = UART(0, 115200)
+uart.init(115200, bits=8, parity=None, stop=1)
 
+# received packet method
 def handler(pin):
     rxfifo = t.rx_bytes()
     data = t.rx_fifo(rxfifo)
     if len(data):
-        print((b'RCV' + data).decode('utf8'))
+        uart.write(data + b'\n')
 
+# interrupt on received packet
 gdo0.irq(trigger=Pin.IRQ_FALLING, handler=handler)
 
+# set RX state
 t.cc1101.strobe(SRX)
 
 def send(data):
@@ -145,35 +151,13 @@ def send(data):
         utime.sleep_us(1000)
     t.cc1101.strobe(SRX)
 
-uos.dupterm(None, 1)
-
-uart = UART(0, 115200)
-uart.init(115200, bits=8, parity=None, stop=1)
-
-# uos.dupterm(uart, 1)
-
 async def serial_recv():
-    blink(red_led)
     reader = uasyncio.StreamReader(uart)
     while True:
-        blink(blue_led)
         rec = await reader.readline()
-        # rec = uart.readline()
-        blink(red_led)
-        uart.write(bytes('{} serial received\r\n'.format(rec), 'utf8'))
-
-blink(blue_led)
-
+        blink(blue_led)
+        send(rec)
 
 loop = uasyncio.get_event_loop()
 loop.create_task(serial_recv())
 loop.run_forever()
-
-
-# cannot use UART.irq on esp8266
-# UART.irq(UART.RX_ANY, priority=1, handler=serial_recv, wake=IDLE)
-
-# while True:
-#     utime.sleep(1)
-#     uart.write(b'hello\r\n')
-#     # uart.read(5) # read up to 5 bytes
