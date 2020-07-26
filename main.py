@@ -1,10 +1,23 @@
 import sys
-from machine import Pin, SPI
+from machine import Pin, SPI, UART
 from cc1101 import CC1101
 from configuration import *
 import utime
 from micropython import const
 from strobes import *
+import uos
+import uasyncio
+
+red_led = machine.Pin(16, machine.Pin.OUT)
+blue_led = machine.Pin(2, machine.Pin.OUT)
+
+def blink(led, n=1):
+    for i in range(n):
+        led.value(0)
+        utime.sleep_ms(200)
+        led.value(1)
+        utime.sleep_ms(200)
+
 
 def init_spi():
     chip = sys.platform
@@ -132,15 +145,35 @@ def send(data):
         utime.sleep_us(1000)
     t.cc1101.strobe(SRX)
 
-import uos
-from machine import UART
 uos.dupterm(None, 1)
 
 uart = UART(0, 115200)
 uart.init(115200, bits=8, parity=None, stop=1)
 
+# uos.dupterm(uart, 1)
+
+async def serial_recv():
+    blink(red_led)
+    reader = uasyncio.StreamReader(uart)
+    while True:
+        blink(blue_led)
+        rec = await reader.readline()
+        # rec = uart.readline()
+        blink(red_led)
+        uart.write(bytes('{} serial received\r\n'.format(rec), 'utf8'))
+
+blink(blue_led)
+
+
+loop = uasyncio.get_event_loop()
+loop.create_task(serial_recv())
+loop.run_forever()
+
+
+# cannot use UART.irq on esp8266
+# UART.irq(UART.RX_ANY, priority=1, handler=serial_recv, wake=IDLE)
+
 # while True:
-for i in range(5000):
-    utime.sleep_us(1000)
-    uart.write('hello')
-    # uart.read(5) # read up to 5 bytes
+#     utime.sleep(1)
+#     uart.write(b'hello\r\n')
+#     # uart.read(5) # read up to 5 bytes
