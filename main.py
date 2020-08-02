@@ -6,9 +6,10 @@ import utime
 from strobes import *
 import uos
 import uasyncio
+from rfm69hcw import RFM69HCW
 
-red_led = machine.Pin(16, machine.Pin.OUT) # extra
-blue_led = machine.Pin(2, machine.Pin.OUT) # built-in
+red_led = Pin(16, Pin.OUT) # extra
+blue_led = Pin(2, Pin.OUT) # built-in
 
 def blink(led, n=1):
     for i in range(n):
@@ -58,7 +59,7 @@ t.set_packet_len(61)
 # t.set_crc_autoflush(0)
 t.set_append_status(0)
 t.set_address_check('NO_ADDR_CHECK')
-t.set_data_whitening(0)
+t.set_data_whitening(1)
 t.set_packet_format('NORMAL')
 t.set_crc_calc(0)
 t.set_packet_length_conf('VARIABLE')
@@ -82,7 +83,7 @@ t.set_preamble_bits(4)
 t.set_channel_bandwidth(325000)
 # t.set_modulation_format('GFSK')
 # t.set_dc_blocking_filter(0)
-t.set_manchester_enc(0)
+t.set_manchester_enc(1)
 
 # # DEVIATN
 
@@ -115,17 +116,18 @@ t.set_filter_length(32)
 # # FSCAL3, FSCAL2, FSCAL1, FSCAL0
 
 # detach REPL from UART, move to boot.py at some point
-uos.dupterm(None, 1)
+# uos.dupterm(None, 1)
 
-uart = UART(0, 115200)
-uart.init(115200, bits=8, parity=None, stop=1)
+# uart = UART(0, 9600)
+# uart.init(9600, bits=8, parity=None, stop=1)
 
 # received packet method
 def handler(pin):
     rxfifo = t.rx_bytes()
     data = t.rx_fifo(rxfifo)
     if len(data):
-        uart.write(data + b'\n')
+        pass
+        # uart.write(b'pkt' + data + b'\n')
 
 # interrupt on received packet
 gdo0.irq(trigger=Pin.IRQ_FALLING, handler=handler)
@@ -155,9 +157,16 @@ async def serial_recv():
     reader = uasyncio.StreamReader(uart)
     while True:
         rec = await reader.readline()
-        blink(blue_led)
-        send(rec)
+        rec = rec.rstrip(b'\n')
+        if rec[:3] == b'pkt':
+            blink(blue_led)
+            send(rec[3:])
+        elif rec[:3] == b'cfg':
+            blink(blue_led, 2)
+            cmd, value = rec[3:].decode().split(',')
+            uart.write(cmd.encode('utf8') + value.encode('utf8') + b'--')
+        blink(blue_led, 3)
 
-loop = uasyncio.get_event_loop()
-loop.create_task(serial_recv())
-loop.run_forever()
+# loop = uasyncio.get_event_loop()
+# loop.create_task(serial_recv())
+# loop.run_forever()
