@@ -20,6 +20,16 @@ class RFM69HCW(object):
         self.FREQ_XOSC = xosc
         self.endian = endian
 
+    def set_bits(self, register, change, start=0, length=8):
+        current = read_bits(self.spi.read(register))
+        mask = str.format(BITS_F, 255)
+        mask = mask[0:start] + '0'*length + mask[start+length:8]
+        change_mask = str.format(BITS_F, 0)
+        bits_change = str.format(BITS_F, change)[8-length:8]
+        change_mask = change_mask[0:start] + bits_change + change_mask[start+length:8]
+        change = current & int(mask, 2) | int(change_mask, 2)
+        self.spi.write(register, change)
+
     # RegFifo 0x00
 
     # RegOpMode 0x01
@@ -37,5 +47,5 @@ class RFM69HCW(object):
         return PACKET_LENGTH_CONF[res]
 
     def set_packet_length_conf(self, pkt_len):
-        codes = reverse(PACKETCONFIG1)
-        self.set_bits(PKTCTRL0, codes[pkt_len], 0x00, 0x01)
+        codes = reverse(PACKET_LENGTH_CONF)
+        self.set_bits(PACKETCONFIG1, codes[pkt_len], 0x00, 0x01)

@@ -33,26 +33,26 @@ class EspSPI(object):
         return read_buf
 
     def read(self, address, status_byte=False):
-        self.register_addr_space(address)
+        # self.register_addr_space(address)
         res = self._spi_read(address + SINGLE_READ)
         if status_byte:
             return res[1], res[0]
         return res[1]
 
     def burst_read(self, address, n, status_byte=False):
-        self.register_addr_space(address)
+        # self.register_addr_space(address)
         res = self._spi_read(address + BURST_READ, length=n+1)
         if status_byte:
             return res[1:], res[0]
         return res[1:]
 
     def write(self, address, byte):
-        self.register_addr_space(address)
+        # self.register_addr_space(address)
         write_buf = bytearray([address, byte])
         return self._spi_write(write_buf)
         
     def burst_write(self, address, databytes):
-        self.register_addr_space(address)
+        # self.register_addr_space(address)
         address += BURST_WRITE
         write_buf = bytearray([address]) + databytes
         return self._spi_write(write_buf)
